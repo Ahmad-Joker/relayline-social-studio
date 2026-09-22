@@ -22,9 +22,12 @@ def create_app() -> FastAPI:
     settings = get_settings()
     settings.generated_dir.mkdir(parents=True, exist_ok=True)
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+    local_origins = {settings.frontend_origin}
+    if settings.environment == "development":
+        local_origins.update({"http://localhost:5173", "http://127.0.0.1:5173"})
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.frontend_origin],
+        allow_origins=sorted(local_origins),
         allow_credentials=False,
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type"],
@@ -39,4 +42,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-

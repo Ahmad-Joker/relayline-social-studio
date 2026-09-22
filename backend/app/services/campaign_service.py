@@ -17,6 +17,12 @@ def stable_idempotency_key(campaign_id: str, platform: Platform) -> str:
     return hashlib.sha256(f"relayline:{campaign_id}:{platform.value}".encode()).hexdigest()
 
 
+def as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 class CampaignService:
     def __init__(self, settings: Settings, image_service: ImageService | None = None, captions: CaptionComposer | None = None):
         self.settings = settings
@@ -80,8 +86,8 @@ class CampaignService:
         for post in campaign.social_posts:
             if post.status in {SocialPostStatus.QUEUED.value, SocialPostStatus.RETRY_SCHEDULED.value}:
                 post.next_attempt_at = now
-                post.scheduled_at = min(post.scheduled_at, now)
-        campaign.scheduled_at = min(campaign.scheduled_at, now)
+                post.scheduled_at = min(as_utc(post.scheduled_at), now)
+        campaign.scheduled_at = min(as_utc(campaign.scheduled_at), now)
         session.commit()
         return campaign
 
@@ -104,16 +110,16 @@ def to_campaign_read(campaign: Campaign, settings: Settings) -> CampaignRead:
             id=post.id,
             platform=post.platform,
             caption=post.caption,
-            image_url=f"{settings.public_api_url}/media/campaigns/{campaign.id}/{post.platform}.jpg",
-            scheduled_at=post.scheduled_at,
-            next_attempt_at=post.next_attempt_at,
+            image_url=f"/media/campaigns/{campaign.id}/{post.platform}.jpg",
+            scheduled_at=as_utc(post.scheduled_at),
+            next_attempt_at=as_utc(post.next_attempt_at),
             status=post.status,
             idempotency_key=post.idempotency_key,
             external_post_id=post.external_post_id,
             publish_attempt_count=post.publish_attempt_count,
             max_attempts=settings.max_publish_attempts,
             last_error_safe=post.last_error_safe,
-            published_at=post.published_at,
+            published_at=as_utc(post.published_at) if post.published_at else None,
         )
         for post in sorted(campaign.social_posts, key=lambda item: item.platform)
     ]
@@ -122,9 +128,9 @@ def to_campaign_read(campaign: Campaign, settings: Settings) -> CampaignRead:
         blog_post_id=campaign.blog_post_id,
         title=campaign.blog_post.title,
         article_url=campaign.blog_post.url,
-        scheduled_at=campaign.scheduled_at,
+        scheduled_at=as_utc(campaign.scheduled_at),
         status=campaign.status,
-        created_at=campaign.created_at,
-        updated_at=campaign.updated_at,
+        created_at=as_utc(campaign.created_at),
+        updated_at=as_utc(campaign.updated_at),
         social_posts=posts,
     )

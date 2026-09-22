@@ -34,3 +34,27 @@ Manual migration/import check:
 INFO  [alembic.runtime.migration] Running upgrade  -> 20260922_0001, initial durable campaign schema
 Relayline Social Studio 20
 ```
+
+## Frontend and live API path — 2026-09-22
+
+Production build:
+
+```text
+vite v8.3.0 building client environment for production...
+✓ 32 modules transformed.
+dist/index.html                   0.55 kB │ gzip:  0.34 kB
+dist/assets/index-DpFbqIk0.css   13.26 kB │ gzip:  3.59 kB
+dist/assets/index-LFrguqj1.js   273.48 kB │ gzip: 86.19 kB
+✓ built in 1.54s
+```
+
+Browser verification used the live React app at `127.0.0.1:5173`, the live FastAPI app at `127.0.0.1:8000`, and a migrated SQLite demo database. The browser created campaign `8cf8f520-5906-418a-9a68-c799d7de0c36` through the real upload form. DOM image inspection returned:
+
+```json
+[
+  {"naturalWidth":1080,"naturalHeight":1080,"complete":true},
+  {"naturalWidth":1600,"naturalHeight":900,"complete":true}
+]
+```
+
+The campaign detail showed distinct Instagram/X captions, separate stable idempotency prefixes, the signed-webhook trust label, attempt counters, and non-sensitive retry state. Two consecutive manual-publish actions completed after the datetime regression fix without creating additional logical rows.

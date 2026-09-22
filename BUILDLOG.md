@@ -17,3 +17,12 @@
 - Failure encountered: two timed-out pip invocations overlapped and locked a Pydantic file on Windows. The stale installer processes completed/terminated, then a single install completed. No tests were hidden or removed.
 - Tests executed: `python -m pytest -q` — 17 passed in 17.85s. `alembic upgrade head` against a clean SQLite database also completed and is covered by the test suite.
 - Remaining limitations: the React UI, Docker images/Compose, PostgreSQL execution, and real supplied-fake-server probes remain. The fake server is still missing from supplied materials.
+
+## 2026-09-22 — Campaign console and browser integration
+
+- Feature: added the React/Vite dashboard, campaign list, create flow, image upload, scheduling controls, campaign detail, platform previews, retry metadata, and manual publish action.
+- Codex involvement: Codex designed and implemented the editorial operations-console interface, then exercised it with an in-app browser against the live FastAPI/SQLite demo.
+- Design choices: same-origin `/api` and `/media` development proxies avoid host-name CORS/media mismatches; the UI exposes safe operational state but no credentials or secret material.
+- Failures encountered: browser verification found a `localhost`/`127.0.0.1` CORS mismatch, broken absolute media URLs, long-caption horizontal overflow, and a naive/aware SQLite datetime comparison in manual publish. Each root cause was fixed and rechecked. One validation command ran `npm` from the backend directory; it failed as expected, and the build was immediately rerun from `frontend` successfully.
+- Tests executed: backend `18 passed in 19.80s`; Vite production build completed with 32 modules. Browser-created campaign `8cf8f520-5906-418a-9a68-c799d7de0c36` rendered both real variants at natural dimensions 1080×1080 and 1600×900. Repeated manual publish left the same two logical social-post rows.
+- Remaining limitations: Docker/PostgreSQL and supplied-fake-server integration probes remain.

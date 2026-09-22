@@ -7,6 +7,7 @@ from app.core.enums import Platform, SocialPostStatus
 from app.db.models import SocialPost
 from app.integrations.fake_social_client import ClientPublishResult, RateLimitError, RetryablePublishError
 from app.services.credential_service import CredentialService
+from app.services.campaign_service import CampaignService as PublishingCampaignService
 from app.services.publishing_service import PublishingService
 from tests.helpers import make_campaign
 
@@ -57,6 +58,16 @@ def test_duplicate_publish_claim_is_safe(session, settings, tmp_path):
     assert post.status == SocialPostStatus.AWAITING_DELIVERY.value
     assert publisher.keys == [post.idempotency_key]
     assert campaign.social_posts[0].id == post.id
+
+
+def test_manual_publish_is_repeatable_with_persisted_sqlite_timestamps(session, settings, tmp_path):
+    campaign = make_campaign(session, settings, tmp_path, (Platform.INSTAGRAM,))
+    campaign_id = campaign.id
+    session.expire_all()
+    persisted = session.get(type(campaign), campaign_id)
+    PublishingCampaignService.publish_now(session, persisted)
+    PublishingCampaignService.publish_now(session, persisted)
+    assert session.query(SocialPost).filter_by(campaign_id=campaign_id).count() == 1
 
 
 def test_timeout_retry_reuses_stable_key_without_duplicate_logical_row(session, settings, tmp_path):
@@ -138,4 +149,3 @@ def test_database_uniqueness_blocks_duplicate_campaign_platform(session, setting
         raise AssertionError("duplicate row unexpectedly committed")
     except IntegrityError:
         session.rollback()
-
