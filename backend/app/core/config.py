@@ -13,11 +13,8 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./social_studio.db"
     token_encryption_key: str = ""
     fake_social_base_url: str = "http://localhost:8090"
-    fake_social_client_id: str = ""
-    fake_social_client_secret: str = ""
     social_webhook_secret: str = "development-only-webhook-secret"
     frontend_origin: str = "http://localhost:5173"
-    public_api_url: str = "http://localhost:8000"
     max_publish_attempts: int = Field(default=4, ge=1, le=10)
     worker_poll_seconds: float = Field(default=1.0, ge=0.1, le=60)
     publish_lease_seconds: int = Field(default=60, ge=5, le=3600)
@@ -38,4 +35,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

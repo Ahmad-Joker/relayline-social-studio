@@ -58,3 +58,93 @@ Browser verification used the live React app at `127.0.0.1:5173`, the live FastA
 ```
 
 The campaign detail showed distinct Instagram/X captions, separate stable idempotency prefixes, the signed-webhook trust label, attempt counters, and non-sensitive retry state. Two consecutive manual-publish actions completed after the datetime regression fix without creating additional logical rows.
+
+## Docker and PostgreSQL — 2026-09-22
+
+The API and frontend images built successfully after base-image pulls. The available stack started with PostgreSQL, API, worker, and frontend:
+
+```text
+relayline-social-studio-api-1        Up (healthy)   0.0.0.0:18000->8000/tcp
+relayline-social-studio-db-1         Up (healthy)   0.0.0.0:15432->5432/tcp
+relayline-social-studio-frontend-1   Up             0.0.0.0:15173->80/tcp
+relayline-social-studio-worker-1     Up             8000/tcp
+```
+
+Migration/seed and live HTTP checks:
+
+```text
+INFO  [alembic.runtime.migration] Running upgrade  -> 20260922_0001
+Demo blog, encrypted fake credentials, and scheduled campaign are ready.
+GET /ready -> {"status":"ready"}
+GET frontend / -> 200
+GET frontend /api/dashboard -> total=1, scheduled=1, two queued platform posts
+```
+
+PostgreSQL inspection:
+
+```text
+campaigns
+---------
+1
+
+platform  | status | count
+----------+--------+------
+instagram | queued | 1
+x         | queued | 1
+
+ciphertext_bytes | nonce_bytes | plaintext_position
+-----------------+-------------+-------------------
+40               | 12          | 0
+48               | 12          | 0
+```
+
+Actual volume image inspection:
+
+```text
+[('instagram.jpg', (1080, 1080)), ('x.jpg', (1600, 900))]
+```
+
+`docker compose down` followed by `docker compose up -d` (without `-v`) preserved the campaign count at `1`.
+
+Containerized test run:
+
+```text
+..................                                                       [100%]
+18 passed in 15.65s
+```
+
+Final expanded host suite:
+
+```text
+.......................                                                  [100%]
+23 passed in 13.68s
+```
+
+Final rebuilt API image suite:
+
+```text
+.......................                                                  [100%]
+23 passed in 16.41s
+```
+
+Runtime log scan:
+
+```text
+LOG_TOKEN_PREFIX_MATCHES=0
+LOG_TEST_KEY_MATCHES=0
+LOG_WEBHOOK_SECRET_MATCHES=0
+no test runtime secrets in tracked files
+```
+
+## Acceptance probes
+
+| Probe | Deterministic/local result | Supplied-server end-to-end result |
+| --- | --- | --- |
+| 1 — duplicates/timeout | Pass: stable key reused, one logical row, uniqueness enforced | Blocked: external post count requires missing server |
+| 2 — 429/Retry-After | Pass: 30-second reschedule, no early claim, same key, eventual acknowledgement | Blocked: server-controlled 429 requires missing server |
+| 3 — crash recovery | Pass: expired lease reclaimed; completed sibling not claimed again | Blocked: real worker kill during supplied-server batch not run |
+| 4 — webhook trust | Pass: forged and modified signatures rejected; valid event publishes; replay is a no-op | Blocked: callback shape must be aligned to missing server |
+| 5 — artifacts | Pass: real files inspected at 1080×1080 and 1600×900; captions differ | Not dependent on server |
+| 6 — token security | Pass: PostgreSQL ciphertext/nonce inspected; plaintext marker and log scans zero | Not dependent on server |
+
+No supplied-server outcome is inferred from mock or local evidence.

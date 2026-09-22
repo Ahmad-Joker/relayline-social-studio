@@ -26,3 +26,12 @@
 - Failures encountered: browser verification found a `localhost`/`127.0.0.1` CORS mismatch, broken absolute media URLs, long-caption horizontal overflow, and a naive/aware SQLite datetime comparison in manual publish. Each root cause was fixed and rechecked. One validation command ran `npm` from the backend directory; it failed as expected, and the build was immediately rerun from `frontend` successfully.
 - Tests executed: backend `18 passed in 19.80s`; Vite production build completed with 32 modules. Browser-created campaign `8cf8f520-5906-418a-9a68-c799d7de0c36` rendered both real variants at natural dimensions 1080×1080 and 1600×900. Repeated manual publish left the same two logical social-post rows.
 - Remaining limitations: Docker/PostgreSQL and supplied-fake-server integration probes remain.
+
+## 2026-09-22 — Containers, PostgreSQL, and persistence
+
+- Feature: added non-root backend and multi-stage frontend images, Nginx API/media proxying, PostgreSQL health checks, API/worker orchestration, named database/media volumes, configurable host ports, and an explicit profile for the missing supplied fake server.
+- Codex involvement: Codex authored the container configuration and ran builds, startup, migration, seed, database inspection, persistence restart, containerized tests, and secret scans.
+- Design choices: the normal stack remains usable for composition/scheduling even when the fake server is absent; the `full` profile points at `starters/challenge-5-social` and deliberately fails if the required supplied dependency has not been placed there.
+- Failures encountered: an initial Docker build exceeded five minutes while base images were downloading; the exact orphaned build client was stopped, base images were pre-pulled, and the cached build then passed. The first worker start used a test key that decoded to 29 bytes; AES validation rejected it, containers were recreated with exactly 32 bytes, and the worker stayed up. No database volume was removed.
+- Tests executed: API/frontend Docker builds passed; PostgreSQL migration and seed passed; `/ready`, Nginx frontend, and proxied dashboard returned success; database token inspection showed 12-byte nonces and zero plaintext marker position; Compose down/up retained one campaign; the final host suite passed 23 tests in 13.68s and the rebuilt API image passed the same 23 tests in 16.41s.
+- Remaining limitations: true OAuth/publish/429/timeout/webhook probes against the FlyRank fake server cannot run until the supplied server is provided.

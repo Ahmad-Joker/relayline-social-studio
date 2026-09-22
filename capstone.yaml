@@ -7,6 +7,7 @@ runtime:
 commands:
   setup: docker compose build
   start: docker compose up
+  start_with_supplied_fake: docker compose --profile full up --build
   migrate: docker compose run --rm api alembic upgrade head
   seed: docker compose run --rm api python -m app.seed
   test: docker compose run --rm api pytest -q
@@ -16,4 +17,3 @@ urls:
   swagger: http://localhost:8000/docs
 requirements:
   fake_social_platform: missing_from_supplied_workspace
-

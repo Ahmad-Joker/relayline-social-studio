@@ -109,6 +109,36 @@ def test_rate_limit_reschedules_without_hammering_then_succeeds(session, setting
     assert session.get(SocialPost, post_id).status == SocialPostStatus.AWAITING_DELIVERY.value
 
 
+def test_retryable_failures_are_bounded(session, settings, tmp_path):
+    make_campaign(session, settings, tmp_path, (Platform.X,))
+    publisher = RecordingPublisher("x", [RetryablePublishError("temporary")] * settings.max_publish_attempts)
+    service = build_service(session, settings, {"x": publisher})
+
+    post_id = None
+    for attempt in range(settings.max_publish_attempts):
+        post_id = service.claim_due(session, datetime.now(timezone.utc) + timedelta(days=attempt + 1))
+        service.process_claimed(session, post_id)
+    post = session.get(SocialPost, post_id)
+    assert post.status == SocialPostStatus.FAILED.value
+    assert post.publish_attempt_count == settings.max_publish_attempts
+    assert len(set(publisher.keys)) == 1
+    assert service.claim_due(session, datetime.now(timezone.utc) + timedelta(days=10)) is None
+
+
+def test_future_schedule_is_durable_but_not_claimed_early(session, settings, tmp_path):
+    campaign = make_campaign(session, settings, tmp_path, (Platform.INSTAGRAM,))
+    post = campaign.social_posts[0]
+    future = datetime.now(timezone.utc) + timedelta(hours=2)
+    post.scheduled_at = future
+    post.next_attempt_at = future
+    campaign.scheduled_at = future
+    session.commit()
+    publisher = RecordingPublisher("instagram")
+    service = build_service(session, settings, {"instagram": publisher})
+    assert service.claim_due(session, datetime.now(timezone.utc)) is None
+    assert service.claim_due(session, future + timedelta(seconds=1)) == post.id
+
+
 def test_expired_lease_recovers_remaining_platform_without_republishing_first(session, settings, tmp_path):
     campaign = make_campaign(session, settings, tmp_path)
     instagram = RecordingPublisher("instagram")

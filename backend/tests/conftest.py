@@ -31,8 +31,6 @@ def settings(tmp_path):
         token_encryption_key=base64.urlsafe_b64encode(b"k" * 32).decode(),
         social_webhook_secret="test-webhook-secret",
         data_dir=tmp_path,
-        public_api_url="http://testserver",
         max_publish_attempts=4,
         publish_lease_seconds=10,
     )
-

@@ -1,0 +1,81 @@
+name: relayline-social-studio
+
+x-backend: &backend
+  build:
+    context: ./backend
+  environment: &backend-environment
+    DATABASE_URL: postgresql+psycopg://social_studio:social_studio@db:5432/social_studio
+    TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:?Set TOKEN_ENCRYPTION_KEY to a URL-safe base64 32-byte key}
+    SOCIAL_WEBHOOK_SECRET: ${SOCIAL_WEBHOOK_SECRET:?Set SOCIAL_WEBHOOK_SECRET}
+    FAKE_SOCIAL_BASE_URL: http://fake-social-platform:8090
+    FRONTEND_ORIGIN: http://localhost:5173
+    DATA_DIR: /data
+    MAX_PUBLISH_ATTEMPTS: ${MAX_PUBLISH_ATTEMPTS:-4}
+    WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-1}
+    PUBLISH_LEASE_SECONDS: ${PUBLISH_LEASE_SECONDS:-60}
+  volumes:
+    - campaign-media:/data
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: social_studio
+      POSTGRES_USER: social_studio
+      POSTGRES_PASSWORD: social_studio
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U social_studio -d social_studio"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "${DB_PORT:-5432}:5432"
+
+  api:
+    <<: *backend
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "${API_PORT:-8000}:8000"
+
+  worker:
+    <<: *backend
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+
+  # The core integration must use the FlyRank-provided server. Place that starter
+  # at this exact path; no substitute implementation is included.
+  fake-social-platform:
+    profiles: ["full"]
+    build:
+      context: ./starters/challenge-5-social
+    environment:
+      WEBHOOK_URL: http://api:8000/webhook/social-delivery
+      WEBHOOK_SECRET: ${SOCIAL_WEBHOOK_SECRET:?Set SOCIAL_WEBHOOK_SECRET}
+    ports:
+      - "${FAKE_SOCIAL_PORT:-8090}:8090"
+
+volumes:
+  postgres-data:
+  campaign-media:
