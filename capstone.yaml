@@ -1,0 +1,19 @@
+name: multi-platform-social-campaign-publisher
+display_name: Relayline Social Studio
+version: 0.1.0
+runtime:
+  python: ">=3.11"
+  node: ">=20"
+commands:
+  setup: docker compose build
+  start: docker compose up
+  migrate: docker compose run --rm api alembic upgrade head
+  seed: docker compose run --rm api python -m app.seed
+  test: docker compose run --rm api pytest -q
+urls:
+  frontend: http://localhost:5173
+  backend: http://localhost:8000
+  swagger: http://localhost:8000/docs
+requirements:
+  fake_social_platform: missing_from_supplied_workspace
+
