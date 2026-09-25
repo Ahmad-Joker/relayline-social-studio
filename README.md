@@ -2,6 +2,8 @@
 
 Relayline turns one blog post into a durable Instagram-and-X campaign. It creates distinct captions, writes exact-size image assets, stores schedules in PostgreSQL, publishes through platform-neutral adapters, and accepts final delivery state only from a verified webhook.
 
+> **Status:** Tested capstone implementation for local demonstration. The complete fake-platform end-to-end flow remains pending because the course-supplied server is not included in this repository.
+
 The product is deliberately narrow: reliable multi-platform delivery, not a broad marketing suite. Publishing to real social-media accounts is outside the core capstone.
 
 ## Supplied fake-platform status
